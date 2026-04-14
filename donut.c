@@ -1,11 +1,18 @@
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <math.h>
 
 #define WIDTH 80
-#define HEIGHT 20
-#define dz 10
+#define HEIGHT 22
+#define R1 1
+#define R2 2
+#define dz 5
+#define ZOOM (WIDTH * dz * 3) / (16 * (R1 + R2))
+#define dA 0.04
+#define dB 0.02
+#define dX 0.07
+#define dY 0.02
 
 void clear() {
     printf("\x1b[2J");
@@ -26,23 +33,6 @@ void render_buf(char buf[HEIGHT][WIDTH]) {
     fflush(stdout);
 }
 
-void draw_outline(char buf[HEIGHT][WIDTH]) {
-    for (int i = 1; i < HEIGHT - 1; ++i) {
-        buf[i][0] = '|';
-        buf[i][WIDTH - 1] = '|';
-    }
-
-    for (int j = 1; j < WIDTH - 1; ++j) {
-        buf[0][j] = '-';
-        buf[HEIGHT - 1][j] = '-';
-    }
-
-    buf[0][0] = '+';
-    buf[HEIGHT - 1][0] = '+';
-    buf[0][WIDTH - 1] = '+';
-    buf[HEIGHT - 1][WIDTH - 1] = '+';
-}
-
 typedef struct {
     float x;
     float y;
@@ -54,28 +44,57 @@ typedef struct {
     int y;
 } point2d;
 
-#define ZOOM 15.0
 point2d project(point3d pix) {
     return (point2d){
-        (int) WIDTH / 2 + pix.x * ZOOM / (pix.z + dz),
-        (int) HEIGHT / 2 - pix.y * ZOOM / (pix.z + dz),
-    };
-}
-
-// Rotation around y axis and x axis
-point3d rotate(point3d pix, float A) {
-    return (point3d) {
-        // pix.x * cos(A) - pix.z * sin(A),
-        // pix.y,
-        // pix.x * sin(A) + pix.z * cos(A),
-        pix.x * cos(A) - pix.z * sin(A),
-        pix.y * cos(A) + sin(A) * (pix.x * sin(A) + pix.z * cos(A)),
-        -pix.y * sin(A) + cos(A) * (pix.x * sin(A) + pix.z * cos(A))
+        (int)WIDTH / 2 + pix.x * ZOOM / (pix.z + dz),
+        (int)HEIGHT / 2 - pix.y * ZOOM / (pix.z + dz),
     };
 }
 
 int in_bounds(point2d pix) {
     return pix.x > 0 && pix.x < WIDTH && pix.y > 0 && pix.y < HEIGHT;
+}
+
+// OLD
+// Drawing donut at rotation A, B, where A is around Y axis and B around X
+// https://www.symbolab.com/solver/matrix-multiply-calculator/%5Cbegin%7Bpmatrix%7Dn%2Br%5Ccdot%20cos%5Cleft(X%5Cright)%26r%5Ccdot%20sin%5Cleft(X%5Cright)%260%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(Y%5Cright)%260%26sin%5Cleft(Y%5Cright)%5C%5C%20%200%261%260%5C%5C%20%20-sin%5Cleft(Y%5Cright)%260%26cos%5Cleft(Y%5Cright)%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(A%5Cright)%260%26sin%5Cleft(A%5Cright)%5C%5C%20%20%20%200%261%260%5C%5C%20%20%20%20-sin%5Cleft(A%5Cright)%260%26cos%5Cleft(A%5Cright)%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7D1%260%260%5C%5C%20%20%200%26cos%5Cleft(B%5Cright)%26-sin%5Cleft(B%5Cright)%5C%5C%20%20%200%26sin%5Cleft(B%5Cright)%26cos%5Cleft(B%5Cright)%5Cend%7Bpmatrix%7D?or=input
+
+// Drawing donut at rotation A, B, where A is around Z axis and B around X
+// https://www.symbolab.com/solver/matrix-multiply-calculator/%5Cbegin%7Bpmatrix%7Dn%2Br%5Ccdot%20cos%5Cleft(X%5Cright)%26r%5Ccdot%20sin%5Cleft(X%5Cright)%260%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(Y%5Cright)%260%26sin%5Cleft(Y%5Cright)%5C%5C%20%20%200%261%260%5C%5C%20%20%20-sin%5Cleft(Y%5Cright)%260%26cos%5Cleft(Y%5Cright)%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(A%5Cright)%26-sin%5Cleft(A%5Cright)%260%5C%5C%20sin%5Cleft(A%5Cright)%26cos%5Cleft(A%5Cright)%260%5C%5C%200%260%261%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7D1%260%260%5C%5C%20%20%20%200%26cos%5Cleft(B%5Cright)%26-sin%5Cleft(B%5Cright)%5C%5C%20%20%20%200%26sin%5Cleft(B%5Cright)%26cos%5Cleft(B%5Cright)%5Cend%7Bpmatrix%7D?or=input
+void draw_donut(float A, float B, char buf[HEIGHT][WIDTH]) {
+    float cosA = cos(A);
+    float cosB = cos(B);
+    float sinA = sin(A);
+    float sinB = sin(B);
+
+    for (float Y = 0.; Y < 6.28; Y += dY) {
+        // float cosYA = cos(Y + A);
+        // float sinYA = sin(Y + A);
+        float cosY = cos(Y);
+        float sinY = sin(Y);
+
+        for (float X = 0.; X < 6.28; X += dX) {
+            float cosX = cos(X);
+            float sinX = sin(X);
+
+            point3d pix3d = (point3d){
+                // cosYA * (R2 + R1 * cosX),
+                // R1 * sinX * cosB + sinYA * sinB * (R2 + R1 * cosX),
+                // sinYA * cosB * (R2 + R1 * cosX) - R1 * sinX * sinB,
+                cosY * cosA * (R2 + R1 * cosX) + R1 * sinX * sinA,
+                cosB * (R1 * sinX * cosA - cosY * sinA * (R2 + R1 * cosX)) + sinB * sinY * (R2 + R1 * cosX),
+                -sinB * (R1 * sinX * cosA - cosY * sinA * (R2 + R1 * cosX)) + cosB * sinY * (R2 + R1 * cosX),
+                // cosY * cosB * (R2 + R1 * cosX) +  sinB * (R1 * sinX * cosA +  sinY * sinA * (R2 + R1 * cosX)),
+                // cosB * (R1 * sinX * cosA + sinY * sinA * (R2 + R1 * cosX)) - cosY * sinB * (R2 + R1 * cosX),
+                // sinY * cosA * (R2 + R1 * cosX) - R1 * sinX * sinA,
+            };
+
+            point2d pix2d = project(pix3d);
+            if (in_bounds(pix2d)) {
+                buf[pix2d.y][pix2d.x] = '#';
+            }
+        }
+    }
 }
 
 int main() {
@@ -87,39 +106,17 @@ int main() {
     char buf[HEIGHT][WIDTH];
     memset(buf, ' ', sizeof(buf));
 
-    // point3d pix3d = {WIDTH - 1, HEIGHT - 1, 0};
-    #define CUBE_LENGTH 3
-    point3d pixels3d[] = {
-        {CUBE_LENGTH, CUBE_LENGTH, CUBE_LENGTH},
-        {CUBE_LENGTH, -CUBE_LENGTH, CUBE_LENGTH},
-        {-CUBE_LENGTH, CUBE_LENGTH, CUBE_LENGTH},
-        {-CUBE_LENGTH, -CUBE_LENGTH, CUBE_LENGTH},
-        {CUBE_LENGTH, CUBE_LENGTH, -CUBE_LENGTH},
-        {CUBE_LENGTH, -CUBE_LENGTH, -CUBE_LENGTH},
-        {-CUBE_LENGTH, CUBE_LENGTH, -CUBE_LENGTH},
-        {-CUBE_LENGTH, -CUBE_LENGTH, -CUBE_LENGTH},
-    };
-    point2d pix2d;
-
-    float A = 0;
-    float d_theta = 6.28 / FPS / 10;
     while (1) {
         home();
-        memset(buf, ' ', sizeof(buf));
-        draw_outline(buf);
 
-        for (int i = 0; i < 8; ++i) {
-            pix2d = project(rotate(pixels3d[i], A));
+        for (float A = 0.; A < 6.28; A += dA) {
+            for (float B = 0.; B < 6.28; B += dB) {
+                memset(buf, ' ', sizeof(buf));
+                draw_donut(A, B, buf);
 
-            if (in_bounds(pix2d)) {
-                buf[pix2d.y][pix2d.x] = '#';
+                render_buf(buf);
+                usleep(t);
             }
         }
-
-        A += d_theta;
-        if (A > 6.28) A = 0;
-
-        render_buf(buf);
-        usleep(t);
     }
 }
