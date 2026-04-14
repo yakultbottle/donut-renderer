@@ -8,7 +8,7 @@
 #define R1 1
 #define R2 2
 #define dz 5
-#define ZOOM (WIDTH * dz * 3) / (16 * (R1 + R2))
+#define ZOOM (HEIGHT * dz * 3) / (8 * (R1 + R2))
 #define dA 0.04
 #define dB 0.02
 #define dX 0.07
@@ -46,8 +46,8 @@ typedef struct {
 
 point2d project(point3d pix) {
     return (point2d){
-        (int)WIDTH / 2 + pix.x * ZOOM / (pix.z + dz),
-        (int)HEIGHT / 2 - pix.y * ZOOM / (pix.z + dz),
+        WIDTH / 2 + (int)(pix.x * ZOOM * 2 / (pix.z + dz)),
+        HEIGHT / 2 - (int)(pix.y * ZOOM / (pix.z + dz)),
     };
 }
 
@@ -55,12 +55,8 @@ int in_bounds(point2d pix) {
     return pix.x > 0 && pix.x < WIDTH && pix.y > 0 && pix.y < HEIGHT;
 }
 
-// OLD
-// Drawing donut at rotation A, B, where A is around Y axis and B around X
-// https://www.symbolab.com/solver/matrix-multiply-calculator/%5Cbegin%7Bpmatrix%7Dn%2Br%5Ccdot%20cos%5Cleft(X%5Cright)%26r%5Ccdot%20sin%5Cleft(X%5Cright)%260%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(Y%5Cright)%260%26sin%5Cleft(Y%5Cright)%5C%5C%20%200%261%260%5C%5C%20%20-sin%5Cleft(Y%5Cright)%260%26cos%5Cleft(Y%5Cright)%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(A%5Cright)%260%26sin%5Cleft(A%5Cright)%5C%5C%20%20%20%200%261%260%5C%5C%20%20%20%20-sin%5Cleft(A%5Cright)%260%26cos%5Cleft(A%5Cright)%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7D1%260%260%5C%5C%20%20%200%26cos%5Cleft(B%5Cright)%26-sin%5Cleft(B%5Cright)%5C%5C%20%20%200%26sin%5Cleft(B%5Cright)%26cos%5Cleft(B%5Cright)%5Cend%7Bpmatrix%7D?or=input
-
-// Drawing donut at rotation A, B, where A is around Z axis and B around X
-// https://www.symbolab.com/solver/matrix-multiply-calculator/%5Cbegin%7Bpmatrix%7Dn%2Br%5Ccdot%20cos%5Cleft(X%5Cright)%26r%5Ccdot%20sin%5Cleft(X%5Cright)%260%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(Y%5Cright)%260%26sin%5Cleft(Y%5Cright)%5C%5C%20%20%200%261%260%5C%5C%20%20%20-sin%5Cleft(Y%5Cright)%260%26cos%5Cleft(Y%5Cright)%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(A%5Cright)%26-sin%5Cleft(A%5Cright)%260%5C%5C%20sin%5Cleft(A%5Cright)%26cos%5Cleft(A%5Cright)%260%5C%5C%200%260%261%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7D1%260%260%5C%5C%20%20%20%200%26cos%5Cleft(B%5Cright)%26-sin%5Cleft(B%5Cright)%5C%5C%20%20%20%200%26sin%5Cleft(B%5Cright)%26cos%5Cleft(B%5Cright)%5Cend%7Bpmatrix%7D?or=input
+// Drawing donut at rotation A, B, where A is around X axis and B around Z
+// https://www.symbolab.com/solver/matrix-multiply-calculator/%5Cbegin%7Bpmatrix%7Dn%2Br%5Ccdot%20cos%5Cleft(X%5Cright)%26r%5Ccdot%20sin%5Cleft(X%5Cright)%260%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(Y%5Cright)%260%26sin%5Cleft(Y%5Cright)%5C%5C%20%20%20%200%261%260%5C%5C%20%20%20%20-sin%5Cleft(Y%5Cright)%260%26cos%5Cleft(Y%5Cright)%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7D1%260%260%5C%5C%20%20%20%20%200%26cos%5Cleft(A%5Cright)%26-sin%5Cleft(A%5Cright)%5C%5C%20%20%20%20%200%26sin%5Cleft(A%5Cright)%26cos%5Cleft(A%5Cright)%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(B%5Cright)%26-sin%5Cleft(B%5Cright)%260%5C%5C%20%20%20sin%5Cleft(B%5Cright)%26cos%5Cleft(B%5Cright)%260%5C%5C%20%20%200%260%261%5Cend%7Bpmatrix%7D
 void draw_donut(float A, float B, char buf[HEIGHT][WIDTH]) {
     float cosA = cos(A);
     float cosB = cos(B);
@@ -68,8 +64,6 @@ void draw_donut(float A, float B, char buf[HEIGHT][WIDTH]) {
     float sinB = sin(B);
 
     for (float Y = 0.; Y < 6.28; Y += dY) {
-        // float cosYA = cos(Y + A);
-        // float sinYA = sin(Y + A);
         float cosY = cos(Y);
         float sinY = sin(Y);
 
@@ -78,15 +72,9 @@ void draw_donut(float A, float B, char buf[HEIGHT][WIDTH]) {
             float sinX = sin(X);
 
             point3d pix3d = (point3d){
-                // cosYA * (R2 + R1 * cosX),
-                // R1 * sinX * cosB + sinYA * sinB * (R2 + R1 * cosX),
-                // sinYA * cosB * (R2 + R1 * cosX) - R1 * sinX * sinB,
-                cosY * cosA * (R2 + R1 * cosX) + R1 * sinX * sinA,
-                cosB * (R1 * sinX * cosA - cosY * sinA * (R2 + R1 * cosX)) + sinB * sinY * (R2 + R1 * cosX),
-                -sinB * (R1 * sinX * cosA - cosY * sinA * (R2 + R1 * cosX)) + cosB * sinY * (R2 + R1 * cosX),
-                // cosY * cosB * (R2 + R1 * cosX) +  sinB * (R1 * sinX * cosA +  sinY * sinA * (R2 + R1 * cosX)),
-                // cosB * (R1 * sinX * cosA + sinY * sinA * (R2 + R1 * cosX)) - cosY * sinB * (R2 + R1 * cosX),
-                // sinY * cosA * (R2 + R1 * cosX) - R1 * sinX * sinA,
+                cosY * cosB * (R2 + R1 * cosX) +  sinB * (R1 * sinX * cosA + sinY * sinA * (R2 + R1 * cosX)),
+                cosB * (R1 * sinX * cosA + sinY * sinA * (R2 + R1 * cosX)) - cosY * sinB * (R2 + R1 * cosX),
+                sinY * cosA * (R2 + R1 * cosX) - R1 * sinX * sinA,
             };
 
             point2d pix2d = project(pix3d);
@@ -100,23 +88,27 @@ void draw_donut(float A, float B, char buf[HEIGHT][WIDTH]) {
 int main() {
     clear();
 
-    int FPS = 60;
+    int FPS = 30;
     int t = 1000000 / FPS;
 
     char buf[HEIGHT][WIDTH];
-    memset(buf, ' ', sizeof(buf));
+
+    float A = 0.;
+    float B = 0.;
 
     while (1) {
         home();
 
-        for (float A = 0.; A < 6.28; A += dA) {
-            for (float B = 0.; B < 6.28; B += dB) {
-                memset(buf, ' ', sizeof(buf));
-                draw_donut(A, B, buf);
+        memset(buf, ' ', sizeof(buf));
+        draw_donut(A, B, buf);
 
-                render_buf(buf);
-                usleep(t);
-            }
-        }
+        render_buf(buf);
+        usleep(t);
+
+        A += dA;
+        B += dB;
+
+        if (A > 6.28) A = 0.;
+        if (B > 6.28) B = 0.;
     }
 }
