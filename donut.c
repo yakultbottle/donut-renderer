@@ -5,33 +5,21 @@
 
 #define WIDTH 80
 #define HEIGHT 22
+
 #define R1 1
 #define R2 2
 #define dz 5
 #define ZOOM (HEIGHT * dz * 3) / (8 * (R1 + R2))
+
 #define dA 0.04
 #define dB 0.02
 #define dX 0.07
 #define dY 0.02
 
-void clear() {
-    printf("\x1b[2J");
-}
+#define LUMINANCE ".,-~:;=!*#$@"
 
-void home() {
-    printf("\x1b[H");
-}
-
-void render_buf(char buf[HEIGHT][WIDTH]) {
-    home();
-    for (int i = 0; i < HEIGHT; ++i) {
-        for (int j = 0; j < WIDTH; ++j) {
-            putchar(buf[i][j]);
-        }
-        putchar('\n');
-    }
-    fflush(stdout);
-}
+#define FPS 30
+#define quanta 1000000 / FPS
 
 typedef struct {
     float x;
@@ -44,11 +32,15 @@ typedef struct {
     int y;
 } point2d;
 
-point2d project(point3d pix) {
-    return (point2d){
-        WIDTH / 2 + (int)(pix.x * ZOOM * 2 / (pix.z + dz)),
-        HEIGHT / 2 - (int)(pix.y * ZOOM / (pix.z + dz)),
-    };
+void render_buf(char buf[HEIGHT][WIDTH]) {
+    printf("\x1b[H"); // return cursor to home, top left
+    for (int i = 0; i < HEIGHT; ++i) {
+        for (int j = 0; j < WIDTH; ++j) {
+            putchar(buf[i][j]);
+        }
+        putchar('\n');
+    }
+    fflush(stdout);
 }
 
 int in_bounds(point2d pix) {
@@ -57,53 +49,70 @@ int in_bounds(point2d pix) {
 
 // Drawing donut at rotation A, B, where A is around X axis and B around Z
 // https://www.symbolab.com/solver/matrix-multiply-calculator/%5Cbegin%7Bpmatrix%7Dn%2Br%5Ccdot%20cos%5Cleft(X%5Cright)%26r%5Ccdot%20sin%5Cleft(X%5Cright)%260%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(Y%5Cright)%260%26sin%5Cleft(Y%5Cright)%5C%5C%20%20%20%200%261%260%5C%5C%20%20%20%20-sin%5Cleft(Y%5Cright)%260%26cos%5Cleft(Y%5Cright)%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7D1%260%260%5C%5C%20%20%20%20%200%26cos%5Cleft(A%5Cright)%26-sin%5Cleft(A%5Cright)%5C%5C%20%20%20%20%200%26sin%5Cleft(A%5Cright)%26cos%5Cleft(A%5Cright)%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(B%5Cright)%26-sin%5Cleft(B%5Cright)%260%5C%5C%20%20%20sin%5Cleft(B%5Cright)%26cos%5Cleft(B%5Cright)%260%5C%5C%20%20%200%260%261%5Cend%7Bpmatrix%7D
-void draw_donut(float A, float B, char buf[HEIGHT][WIDTH]) {
+void draw_donut(float A, float B, char buf[HEIGHT][WIDTH], float z[HEIGHT][WIDTH]) {
     float cosA = cos(A);
     float cosB = cos(B);
     float sinA = sin(A);
     float sinB = sin(B);
 
-    for (float Y = 0.; Y < 6.28; Y += dY) {
-        float cosY = cos(Y);
-        float sinY = sin(Y);
+    for (float X = 0.; X < 6.28; X += dX) {
+        float cosX = cos(X);
+        float sinX = sin(X);
+        float r2r1cos = R2 + R1 * cosX;
+        float sinXcosA = sinX * cosA;
 
-        for (float X = 0.; X < 6.28; X += dX) {
-            float cosX = cos(X);
-            float sinX = sin(X);
+        for (float Y = 0.; Y < 6.28; Y += dY) {
+            float cosY = cos(Y);
+            float sinY = sin(Y);
+            float sinYcosA = sinY * cosA;
+            float supalong = R1 * sinXcosA + sinY * sinA * r2r1cos;
 
             point3d pix3d = (point3d){
-                cosY * cosB * (R2 + R1 * cosX) +  sinB * (R1 * sinX * cosA + sinY * sinA * (R2 + R1 * cosX)),
-                cosB * (R1 * sinX * cosA + sinY * sinA * (R2 + R1 * cosX)) - cosY * sinB * (R2 + R1 * cosX),
-                sinY * cosA * (R2 + R1 * cosX) - R1 * sinX * sinA,
+                cosY * cosB * r2r1cos + sinB * supalong,
+                cosB * supalong - cosY * sinB * r2r1cos,
+                sinYcosA * r2r1cos - R1 * sinX * sinA,
             };
 
-            point2d pix2d = project(pix3d);
-            if (in_bounds(pix2d)) {
-                buf[pix2d.y][pix2d.x] = '#';
+            float inverse_z = 1. / (pix3d.z + dz);
+
+            point2d pix2d = (point2d){
+                WIDTH / 2 + (int)(pix3d.x * ZOOM * 2 * inverse_z),
+                HEIGHT / 2 - (int)(pix3d.y * ZOOM * inverse_z),
+            };
+
+            // inverse_z being smaller means it is closer to screen, render this pixel
+            if (in_bounds(pix2d) && inverse_z > z[pix2d.y][pix2d.x]) {
+                // Luminance derivation
+                // https://www.symbolab.com/solver/matrix-multiply-calculator/%5Cbegin%7Bpmatrix%7Dcos%5Cleft(X%5Cright)%26sin%5Cleft(X%5Cright)%260%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(Y%5Cright)%260%26sin%5Cleft(Y%5Cright)%5C%5C%20%20%20%20%20%200%261%260%5C%5C%20%20%20%20%20%20-sin%5Cleft(Y%5Cright)%260%26cos%5Cleft(Y%5Cright)%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7D1%260%260%5C%5C%20%20%20%20%20%20%200%26cos%5Cleft(A%5Cright)%26-sin%5Cleft(A%5Cright)%5C%5C%20%20%20%20%20%20%200%26sin%5Cleft(A%5Cright)%26cos%5Cleft(A%5Cright)%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(B%5Cright)%26-sin%5Cleft(B%5Cright)%260%5C%5C%20%20%20%20%20sin%5Cleft(B%5Cright)%26cos%5Cleft(B%5Cright)%260%5C%5C%20%20%20%20%200%260%261%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7D0%261%26-1%5Cend%7Bpmatrix%7D?or=input
+                float L = sinX * cosA * cosB + cosX * sinY * sinA * cosB - cosX * cosY * sinB - cosX * sinYcosA + sinX * sinA;
+
+                z[pix2d.y][pix2d.x] = inverse_z;
+                // luminance equation did not normalise light dir, so factor that in here:
+                // 8 * sqrt(2) = 11.3, now in range 0..11 after int truncation
+                // also clamp to 0, so that all dark parts of the donut are rendered at funny angles
+                int luminance_index = L > 0 ? (int)(L * 8) : 0;
+                buf[pix2d.y][pix2d.x] = LUMINANCE[luminance_index];
             }
         }
     }
 }
 
 int main() {
-    clear();
-
-    int FPS = 30;
-    int t = 1000000 / FPS;
+    printf("\x1b[2J"); // clear screen
 
     char buf[HEIGHT][WIDTH];
+    float z[HEIGHT][WIDTH];
 
     float A = 0.;
     float B = 0.;
 
     while (1) {
-        home();
-
         memset(buf, ' ', sizeof(buf));
-        draw_donut(A, B, buf);
+        memset(z, 0, sizeof(z));
+        draw_donut(A, B, buf, z);
 
         render_buf(buf);
-        usleep(t);
+        usleep(quanta);
 
         A += dA;
         B += dB;
