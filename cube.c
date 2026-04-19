@@ -33,6 +33,27 @@ typedef struct {
     int y;
 } point2d;
 
+point3d vertices[8] = {
+    (point3d){HALF_CUBE_LEN, HALF_CUBE_LEN, HALF_CUBE_LEN},
+    (point3d){-HALF_CUBE_LEN, HALF_CUBE_LEN, HALF_CUBE_LEN},
+    (point3d){HALF_CUBE_LEN, -HALF_CUBE_LEN, HALF_CUBE_LEN},
+    (point3d){-HALF_CUBE_LEN, -HALF_CUBE_LEN, HALF_CUBE_LEN},
+    (point3d){HALF_CUBE_LEN, HALF_CUBE_LEN, -HALF_CUBE_LEN},
+    (point3d){-HALF_CUBE_LEN, HALF_CUBE_LEN, -HALF_CUBE_LEN},
+    (point3d){HALF_CUBE_LEN, -HALF_CUBE_LEN, -HALF_CUBE_LEN},
+    (point3d){-HALF_CUBE_LEN, -HALF_CUBE_LEN, -HALF_CUBE_LEN},
+};
+
+// Order is botleft, topright, botleft
+int faces[6][4] = {
+    {5, 4, 7}, // Front face  (Z = -HALF_CUBE_LEN)
+    {0, 1, 2}, // Back face   (Z =  HALF_CUBE_LEN)
+    {1, 0, 5}, // Top face    (Y =  HALF_CUBE_LEN)
+    {7, 6, 3}, // Bottom face (Y = -HALF_CUBE_LEN)
+    {4, 0, 6}, // Right face  (X =  HALF_CUBE_LEN)
+    {1, 5, 3}  // Left face   (X = -HALF_CUBE_LEN)
+};
+
 void render_buf(char buf[HEIGHT][WIDTH]) {
     printf("\x1b[H"); // return cursor to home, top left
     for (int i = 0; i < HEIGHT; ++i) {
@@ -67,27 +88,6 @@ point3d *rotate(float A, float B, point3d vertices[]) {
     return rotated_vertices;
 }
 
-point3d vertices[8] = {
-    (point3d){HALF_CUBE_LEN, HALF_CUBE_LEN, HALF_CUBE_LEN},
-    (point3d){-HALF_CUBE_LEN, HALF_CUBE_LEN, HALF_CUBE_LEN},
-    (point3d){HALF_CUBE_LEN, -HALF_CUBE_LEN, HALF_CUBE_LEN},
-    (point3d){-HALF_CUBE_LEN, -HALF_CUBE_LEN, HALF_CUBE_LEN},
-    (point3d){HALF_CUBE_LEN, HALF_CUBE_LEN, -HALF_CUBE_LEN},
-    (point3d){-HALF_CUBE_LEN, HALF_CUBE_LEN, -HALF_CUBE_LEN},
-    (point3d){HALF_CUBE_LEN, -HALF_CUBE_LEN, -HALF_CUBE_LEN},
-    (point3d){-HALF_CUBE_LEN, -HALF_CUBE_LEN, -HALF_CUBE_LEN},
-};
-
-// Order is botleft, topright, botleft
-int faces[6][4] = {
-    {5, 4, 7}, // Front face  (Z = -HALF_CUBE_LEN)
-    {0, 1, 2}, // Back face   (Z =  HALF_CUBE_LEN)
-    {1, 0, 5}, // Top face    (Y =  HALF_CUBE_LEN)
-    {7, 6, 3}, // Bottom face (Y = -HALF_CUBE_LEN)
-    {4, 0, 6}, // Right face  (X =  HALF_CUBE_LEN)
-    {1, 5, 3}  // Left face   (X = -HALF_CUBE_LEN)
-};
-
 // Drawing cube at rotation A, B, where A is around X axis and B around Z
 // https://www.symbolab.com/solver/matrix-multiply-calculator/%5Cbegin%7Bpmatrix%7Dx%26y%26z%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(A%5Cright)%26-sin%5Cleft(A%5Cright)%260%5C%5C%20%20%20sin%5Cleft(A%5Cright)%26cos%5Cleft(A%5Cright)%260%5C%5C%20%20%200%260%261%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7D1%260%260%5C%5C%20%20%20%20%20%200%26cos%5Cleft(B%5Cright)%26-sin%5Cleft(B%5Cright)%5C%5C%20%20%20%20%20%200%26sin%5Cleft(B%5Cright)%26cos%5Cleft(B%5Cright)%5Cend%7Bpmatrix%7D?or=input
 void draw_cube(float A, float B, char buf[HEIGHT][WIDTH], float z_buf[HEIGHT][WIDTH]) {
@@ -115,6 +115,10 @@ void draw_cube(float A, float B, char buf[HEIGHT][WIDTH], float z_buf[HEIGHT][WI
             TL_BL.z * TL_TR.x - TL_BL.x * TL_TR.z,
             TL_BL.x * TL_TR.y - TL_BL.y * TL_TR.x,
         };
+
+        if (cross_product.z < 0) {
+            continue;
+        }
 
         // Light dir (0, 1, -1) not normalised: sqrt(2)
         // Cross produce magnitude: 9
@@ -150,6 +154,8 @@ void draw_cube(float A, float B, char buf[HEIGHT][WIDTH], float z_buf[HEIGHT][WI
             }
         }
     }
+
+    free(rot_vertices);
 }
 
 int main() {
