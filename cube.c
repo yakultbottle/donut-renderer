@@ -48,7 +48,7 @@ int in_bounds(point2d pix) {
     return pix.x > 0 && pix.x < WIDTH && pix.y > 0 && pix.y < HEIGHT;
 }
 
-point3d* rotate(float A, float B, point3d vertices[]) {
+point3d *rotate(float A, float B, point3d vertices[]) {
     float cosA = cos(A);
     float cosB = cos(B);
     float sinA = sin(A);
@@ -80,12 +80,12 @@ point3d vertices[8] = {
 
 // Order is botleft, topright, botleft
 int faces[6][4] = {
-    {1, 0, 3}, // Front face  (Z =  HALF_CUBE_LEN)
-    {5, 4, 7}, // Back face   (Z = -HALF_CUBE_LEN)
+    {5, 4, 7}, // Front face  (Z = -HALF_CUBE_LEN)
+    {0, 1, 2}, // Back face   (Z =  HALF_CUBE_LEN)
     {1, 0, 5}, // Top face    (Y =  HALF_CUBE_LEN)
-    {3, 2, 7}, // Bottom face (Y = -HALF_CUBE_LEN)
-    {0, 4, 2}, // Right face  (X =  HALF_CUBE_LEN)
-    {5, 1, 7}  // Left face   (X = -HALF_CUBE_LEN)
+    {7, 6, 3}, // Bottom face (Y = -HALF_CUBE_LEN)
+    {4, 0, 6}, // Right face  (X =  HALF_CUBE_LEN)
+    {1, 5, 3}  // Left face   (X = -HALF_CUBE_LEN)
 };
 
 // Drawing cube at rotation A, B, where A is around X axis and B around Z
@@ -116,7 +116,10 @@ void draw_cube(float A, float B, char buf[HEIGHT][WIDTH], float z_buf[HEIGHT][WI
             TL_BL.x * TL_TR.y - TL_BL.y * TL_TR.x,
         };
 
-        float L = cross_product.y - cross_product.z;
+        // Light dir (0, 1, -1) not normalised: sqrt(2)
+        // Cross produce magnitude: 9
+        // 1 / (9 * sqrt(2)) = 0.07856 to normalise
+        float angle_intensity = -(cross_product.y - cross_product.z) * 0.07856;
 
         for (float u = 0.; u <= 1.0; u += dC) {
             for (float v = 0.; v <= 1.0; v += dC) {
@@ -134,13 +137,14 @@ void draw_cube(float A, float B, char buf[HEIGHT][WIDTH], float z_buf[HEIGHT][WI
                 if (in_bounds(pix2d) && inverse_z > z_buf[pix2d.y][pix2d.x]) {
                     z_buf[pix2d.y][pix2d.x] = inverse_z;
 
-                    // luminance equation did not normalise light dir, so
-                    // factor that in here along with the cross product
-                    // magnitude: 9 * sqrt(2) = 12.7, to get in range 0..11
-                    // after int truncation have to * 0.92. also clamp to 0, so
-                    // that all dark parts of the donut are rendered at funny
-                    // angles
-                    int luminance_index = L > 0 ? (int)(L * 0.92) : 0;
+                    float dist_squared = x * x + (y - 3) * (y - 3) + (z + 3) * (z + 3);
+                    // 50 is a random number I found. Sorry I'm bad at math
+                    float dist_intensity = 1.0 - (dist_squared / 50.);
+                    float L = angle_intensity * dist_intensity;
+
+                    // clamp to 0, so that all dark parts of the donut are
+                    // rendered at funny angles
+                    int luminance_index = L <= 0 ? 0 : L > 12 ? 11 : (int)(L * 12);
                     buf[pix2d.y][pix2d.x] = LUMINANCE[luminance_index];
                 }
             }
