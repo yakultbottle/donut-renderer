@@ -1,6 +1,8 @@
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <unistd.h>
 #include <wchar.h>
 #include <locale.h>
@@ -101,10 +103,19 @@ void draw_donut(float A, float B, wchar_t buf[HEIGHT][WIDTH], float z[HEIGHT][WI
     }
 }
 
+void cleanup() {
+    wprintf(L"\x1b[?25h");   // show cursor
+    wprintf(L"\x1b[?1049l"); // close alternate screen buffer
+    exit(0);
+}
+
 int main() {
+    signal(SIGINT, cleanup);
+
     setlocale(LC_ALL, "");
 
-    wprintf(L"\x1b[2J"); // clear screen
+    wprintf(L"\x1b[?1049h"); // open alternate screen buffer
+    wprintf(L"\x1b[?25l");   // hide cursor
 
     wchar_t buf[HEIGHT][WIDTH];
     float z[HEIGHT][WIDTH];

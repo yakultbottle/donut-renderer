@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <unistd.h>
 #include <wchar.h>
 #include <locale.h>
@@ -161,10 +162,20 @@ void draw_cube(float A, float B, wchar_t buf[HEIGHT][WIDTH], float z_buf[HEIGHT]
     free(rot_vertices);
 }
 
+void cleanup() {
+    wprintf(L"\x1b[?25h");   // show cursor
+    wprintf(L"\x1b[?1049l"); // close alternate screen buffer
+    wprintf(L"\x1b[0m");     // reset all text colour
+    exit(0);
+}
+
 int main() {
+    signal(SIGINT, cleanup);
+
     setlocale(LC_ALL, "");
 
-    wprintf(L"\x1b[2J"); // clear screen
+    wprintf(L"\x1b[?1049h"); // open alternate screen buffer
+    wprintf(L"\x1b[?25l");   // hide cursor
 
     wchar_t buf[HEIGHT][WIDTH];
     float z_buf[HEIGHT][WIDTH];

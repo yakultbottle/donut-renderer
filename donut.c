@@ -1,5 +1,7 @@
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -97,8 +99,17 @@ void draw_donut(float A, float B, char buf[HEIGHT][WIDTH], float z[HEIGHT][WIDTH
     }
 }
 
+void cleanup() {
+    printf("\x1b[?25h");   // show cursor
+    printf("\x1b[?1049l"); // close alternate screen buffer
+    exit(0);
+}
+
 int main() {
-    printf("\x1b[2J"); // clear screen
+    signal(SIGINT, cleanup);
+
+    printf("\x1b[?1049h"); // open alternate screen buffer
+    printf("\x1b[?25l");   // hide cursor
 
     char buf[HEIGHT][WIDTH];
     float z[HEIGHT][WIDTH];
