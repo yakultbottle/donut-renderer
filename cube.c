@@ -98,6 +98,26 @@ void draw_cube(float A, float B, char buf[HEIGHT][WIDTH], float z_buf[HEIGHT][WI
         point3d TR = rot_vertices[faces[face][1]];
         point3d BL = rot_vertices[faces[face][2]];
 
+        point3d TL_TR = (point3d){
+            TR.x - TL.x,
+            TR.y - TL.y,
+            TR.z - TL.z,
+        };
+
+        point3d TL_BL = (point3d){
+            BL.x - TL.x,
+            BL.y - TL.y,
+            BL.z - TL.z,
+        };
+
+        point3d cross_product = (point3d){
+            TL_BL.y * TL_TR.z - TL_BL.z * TL_TR.y,
+            TL_BL.z * TL_TR.x - TL_BL.x * TL_TR.z,
+            TL_BL.x * TL_TR.y - TL_BL.y * TL_TR.x,
+        };
+
+        float L = cross_product.y - cross_product.z;
+
         for (float u = 0.; u <= 1.0; u += dC) {
             for (float v = 0.; v <= 1.0; v += dC) {
                 float x = TL.x + (TR.x - TL.x) * u + (BL.x - TL.x) * v;
@@ -112,21 +132,16 @@ void draw_cube(float A, float B, char buf[HEIGHT][WIDTH], float z_buf[HEIGHT][WI
 
                 // inverse_z being smaller means it is closer to screen, render this pixel
                 if (in_bounds(pix2d) && inverse_z > z_buf[pix2d.y][pix2d.x]) {
-                    buf[pix2d.y][pix2d.x] = '#';
+                    z_buf[pix2d.y][pix2d.x] = inverse_z;
 
-                    // Luminance derivation
-                    // float L = sinX * cosA * cosB + cosX * sinY * sinA *
-                    // cosB - cosX * cosY * sinB - cosX * sinYcosA + sinX *
-                    // sinA;
-
-                    // z_buf[pix2d.y][pix2d.x] = inverse_z;
                     // luminance equation did not normalise light dir, so
-                    // factor that in here: 8 * sqrt(2) = 11.3, now in range
-                    // 0..11 after int truncation also clamp to 0, so that
-                    // all dark parts of the donut are rendered at funny
-                    // angles int luminance_index = L > 0 ? (int)(L * 8) :
-                    // 0; buf[pix2d.y][pix2d.x] =
-                    // LUMINANCE[luminance_index];
+                    // factor that in here along with the cross product
+                    // magnitude: 9 * sqrt(2) = 12.7, to get in range 0..11
+                    // after int truncation have to * 0.92. also clamp to 0, so
+                    // that all dark parts of the donut are rendered at funny
+                    // angles
+                    int luminance_index = L > 0 ? (int)(L * 0.92) : 0;
+                    buf[pix2d.y][pix2d.x] = LUMINANCE[luminance_index];
                 }
             }
         }
