@@ -57,11 +57,20 @@ int faces[6][4] = {
     {1, 5, 3}  // Left face   (X = -HALF_CUBE_LEN)
 };
 
-void render_buf(wchar_t buf[HEIGHT][WIDTH]) {
+char *sides_colours[6] = {
+    "\x1b[0;38;2;0;69;173;49m",    // Blue,   front
+    "\x1b[0;38;2;0;155;72;49m",    // Green,  back
+    "\x1b[0;38;2;255;255;255;49m", // White,  top
+    "\x1b[0;38;2;255;213;0;49m",   // Yellow, bottom
+    "\x1b[0;38;2;185;0;0;49m",     // Red,    left
+    "\x1b[0;38;2;255;89;0;49m" ,   // Orange, right
+};
+
+void render_buf(wchar_t buf[HEIGHT][WIDTH], int face_colours[HEIGHT][WIDTH]) {
     wprintf(L"\x1b[H"); // return cursor to home, top left
-    wprintf(L"\x1b[38;2;0;255;255m");
     for (int i = 0; i < HEIGHT; ++i) {
         for (int j = 0; j < WIDTH; ++j) {
+            wprintf(L"%s", sides_colours[face_colours[i][j]]);
             putwchar(buf[i][j]);
         }
         putwchar('\n');
@@ -94,7 +103,13 @@ point3d *rotate(float A, float B, point3d vertices[]) {
 
 // Drawing cube at rotation A, B, where A is around X axis and B around Z
 // https://www.symbolab.com/solver/matrix-multiply-calculator/%5Cbegin%7Bpmatrix%7Dx%26y%26z%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7Dcos%5Cleft(A%5Cright)%26-sin%5Cleft(A%5Cright)%260%5C%5C%20%20%20sin%5Cleft(A%5Cright)%26cos%5Cleft(A%5Cright)%260%5C%5C%20%20%200%260%261%5Cend%7Bpmatrix%7D%5Cbegin%7Bpmatrix%7D1%260%260%5C%5C%20%20%20%20%20%200%26cos%5Cleft(B%5Cright)%26-sin%5Cleft(B%5Cright)%5C%5C%20%20%20%20%20%200%26sin%5Cleft(B%5Cright)%26cos%5Cleft(B%5Cright)%5Cend%7Bpmatrix%7D?or=input
-void draw_cube(float A, float B, wchar_t buf[HEIGHT][WIDTH], float z_buf[HEIGHT][WIDTH]) {
+void draw_cube(
+    float A,
+    float B,
+    wchar_t buf[HEIGHT][WIDTH],
+    float z_buf[HEIGHT][WIDTH],
+    int face_colours[HEIGHT][WIDTH]
+) {
     point3d *rot_vertices = rotate(A, B, vertices);
 
     for (int face = 0; face < 6; ++face) {
@@ -154,6 +169,7 @@ void draw_cube(float A, float B, wchar_t buf[HEIGHT][WIDTH], float z_buf[HEIGHT]
                     // rendered at funny angles
                     int luminance_index = L <= 0 ? 0 : L > 12 ? 11 : (int)(L * 4);
                     buf[pix2d.y][pix2d.x] = LUMINANCE[luminance_index];
+                    face_colours[pix2d.y][pix2d.x] = face;
                 }
             }
         }
@@ -179,6 +195,7 @@ int main() {
 
     wchar_t buf[HEIGHT][WIDTH];
     float z_buf[HEIGHT][WIDTH];
+    int face_colours[HEIGHT][WIDTH];
 
     float A = 0.;
     float B = 0.;
@@ -186,9 +203,10 @@ int main() {
     while (1) {
         wmemset((wchar_t*)buf, L' ', sizeof(buf) / sizeof(wchar_t));
         memset(z_buf, 0, sizeof(z_buf));
-        draw_cube(A, B, buf, z_buf);
+        memset(face_colours, 0, sizeof(face_colours));
+        draw_cube(A, B, buf, z_buf, face_colours);
 
-        render_buf(buf);
+        render_buf(buf, face_colours);
         usleep(quanta);
 
         A += dA;
